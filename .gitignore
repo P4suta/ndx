@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+*.tgz
+.DS_Store
+CLAUDE.md
+ndx 技術設計書.md
+.claude/
+.idea/
