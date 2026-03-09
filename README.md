@@ -25,24 +25,28 @@ Shutter speed values follow a 2^(n/3) geometric progression across standardized 
 
 ## Quick Start
 
-Build the project, then copy the entire contents of `dist/index.html` into your HTML page or blog platform's HTML card. That's it — the built file contains everything (HTML, CSS, JS) in a single self-contained block.
-
 ```bash
 bun install
-bun run build    # → dist/index.html
+bun run build    # → dist/ndx.html
 ```
 
-No npm publish. No CDN link. No external script tag. The output file **is** the component.
+Open `dist/ndx.html` and copy its entire contents into your blog platform's HTML card (Ghost, WordPress, Hugo, etc.). That's it — the file contains the `<ndx-calc>` tag and a single `<script>` block with everything inlined.
 
-For a no-JS fallback, wrap the content with:
+No npm publish. No CDN link. No external files. Just paste and it works.
+
+`dist/ndx.html` looks like this:
 
 ```html
+<!-- ndx v1.0.0 | MIT License | https://github.com/P4suta/ndx -->
 <ndx-calc>
   <p style="padding:1em;text-align:center;color:#666;">
     ND Filter Calculator requires JavaScript.
   </p>
 </ndx-calc>
+<script>/* ... minified component code ... */</script>
 ```
+
+`dist/index.html` is also generated as a full standalone page for preview.
 
 ## Features
 
