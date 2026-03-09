@@ -25,14 +25,16 @@ Shutter speed values follow a 2^(n/3) geometric progression across standardized 
 
 ## Quick Start
 
-```html
-<ndx-calc></ndx-calc>
-<script src="ndx.min.js"></script>
+Build the project, then copy the entire contents of `dist/index.html` into your HTML page or blog platform's HTML card. That's it — the built file contains everything (HTML, CSS, JS) in a single self-contained block.
+
+```bash
+bun install
+bun run build    # → dist/index.html
 ```
 
-That's it. No npm. No build tools. No CDN. Copy the built `dist/index.html` content into any HTML page or blog platform's HTML card.
+No npm publish. No CDN link. No external script tag. The output file **is** the component.
 
-### With a fallback for no-JS environments
+For a no-JS fallback, wrap the content with:
 
 ```html
 <ndx-calc>
