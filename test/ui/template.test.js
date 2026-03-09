@@ -58,19 +58,38 @@ describe('template', () => {
 			'opticalDensity',
 			'transmission',
 			'resultSS',
+			'resultSSExact',
 			'bulbBadge',
 			'shiftInfo',
 			'evBefore',
 			'evAfter',
-			'altAperture',
-			'apWarning',
-			'altISO',
-			'isoWarning',
+			'stackChips',
+			'clearButton',
 		];
 
 		it.each(expectedBindings)('has data-bind="%s"', (key) => {
 			const el = root.querySelector(`[data-bind="${key}"]`);
 			expect(el).not.toBeNull();
+		});
+	});
+
+	describe('ev-step buttons', () => {
+		it('has 6 ev-step buttons (2 per param)', () => {
+			const buttons = root.querySelectorAll('[data-action="ev-step"]');
+			expect(buttons.length).toBe(6);
+		});
+
+		it('each param has −1 and +1 buttons', () => {
+			for (const target of ['ss', 'aperture', 'iso']) {
+				const minus = root.querySelector(
+					`[data-action="ev-step"][data-target="${target}"][data-delta="-3"]`,
+				);
+				const plus = root.querySelector(
+					`[data-action="ev-step"][data-target="${target}"][data-delta="3"]`,
+				);
+				expect(minus).not.toBeNull();
+				expect(plus).not.toBeNull();
+			}
 		});
 	});
 
@@ -81,31 +100,45 @@ describe('template', () => {
 			expect(root.querySelector('[data-action="iso"]')).not.toBeNull();
 		});
 
-		it('has preset buttons', () => {
-			const presets = root.querySelectorAll('[data-action="preset"]');
+		it('has add-preset buttons', () => {
+			const presets = root.querySelectorAll('[data-action="add-preset"]');
 			expect(presets.length).toBe(5);
 		});
 
-		it('has stops slider', () => {
-			expect(root.querySelector('[data-action="stops"]')).not.toBeNull();
+		it('presets do not have role="radio"', () => {
+			const presets = root.querySelectorAll('[data-action="add-preset"]');
+			for (const btn of presets) {
+				expect(btn.getAttribute('role')).toBeNull();
+			}
+		});
+
+		it('has add-custom button', () => {
+			expect(root.querySelector('[data-action="add-custom"]')).not.toBeNull();
+		});
+
+		it('has clear-stack button', () => {
+			expect(root.querySelector('[data-action="clear-stack"]')).not.toBeNull();
+		});
+	});
+
+	describe('stack UI elements', () => {
+		it('has stackChips container with role="list"', () => {
+			const container = root.querySelector('[data-bind="stackChips"]');
+			expect(container).not.toBeNull();
+			expect(container.getAttribute('role')).toBe('list');
+		});
+
+		it('has clear button hidden by default', () => {
+			const btn = root.querySelector('[data-bind="clearButton"]');
+			expect(btn).not.toBeNull();
+			expect(btn.hidden).toBe(true);
 		});
 	});
 
 	describe('ARIA attributes', () => {
-		it('has radiogroup for presets', () => {
-			expect(root.querySelector('[role="radiogroup"]')).not.toBeNull();
-		});
-
-		it('preset buttons have role=radio', () => {
-			const buttons = root.querySelectorAll('[data-action="preset"]');
-			for (const btn of buttons) {
-				expect(btn.getAttribute('role')).toBe('radio');
-			}
-		});
-
-		it('ND8 preset is aria-checked by default', () => {
-			const nd8 = root.querySelector('[data-stops="3"]');
-			expect(nd8.getAttribute('aria-checked')).toBe('true');
+		it('has group for presets (not radiogroup)', () => {
+			const group = root.querySelector('.ndx__presets');
+			expect(group.getAttribute('role')).toBe('group');
 		});
 
 		it('result section has aria-live=polite', () => {
@@ -115,7 +148,7 @@ describe('template', () => {
 
 		it('slider has aria-label', () => {
 			const slider = root.querySelector('#ndx-stops');
-			expect(slider.getAttribute('aria-label')).toBe('ND stops');
+			expect(slider.getAttribute('aria-label')).toBe('Custom ND stops');
 		});
 	});
 });

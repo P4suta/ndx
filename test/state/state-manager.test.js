@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ExposureCalculator } from '../../src/domain/exposure-calculator.js';
+import { ShutterSpeed } from '../../src/domain/shutter-speed.js';
 import { StateManager } from '../../src/state/state-manager.js';
 
 describe('StateManager', () => {
@@ -58,36 +59,147 @@ describe('StateManager', () => {
 		});
 	});
 
-	describe('setNDStops', () => {
-		it('updates with valid stops', () => {
+	describe('addNDFilter', () => {
+		it('adds filter to stack', () => {
 			const sm = createManager();
 			sm.initialize();
-			sm.setNDStops(10);
-			expect(sm.state.ndFilter.stops).toBe(10);
+			// Default has 1 filter (ND8), add ND1024
+			sm.addNDFilter(10);
+			expect(sm.state.ndFilter.count).toBe(2);
+			expect(sm.state.ndFilter.stops).toBe(13); // 3 + 10
 		});
 
 		it('ignores invalid stops (0)', () => {
 			const sm = createManager();
 			sm.initialize();
-			const prev = sm.state.ndFilter.stops;
-			sm.setNDStops(0);
-			expect(sm.state.ndFilter.stops).toBe(prev);
+			const prevCount = sm.state.ndFilter.count;
+			sm.addNDFilter(0);
+			expect(sm.state.ndFilter.count).toBe(prevCount);
 		});
 
 		it('ignores invalid stops (21)', () => {
 			const sm = createManager();
 			sm.initialize();
-			const prev = sm.state.ndFilter.stops;
-			sm.setNDStops(21);
-			expect(sm.state.ndFilter.stops).toBe(prev);
+			const prevCount = sm.state.ndFilter.count;
+			sm.addNDFilter(21);
+			expect(sm.state.ndFilter.count).toBe(prevCount);
 		});
 
-		it('ignores invalid stops (1.5)', () => {
+		it('silently fails when stack is full (5 filters)', () => {
 			const sm = createManager();
 			sm.initialize();
-			const prev = sm.state.ndFilter.stops;
-			sm.setNDStops(1.5);
-			expect(sm.state.ndFilter.stops).toBe(prev);
+			// Default has 1, add 4 more
+			for (let i = 0; i < 4; i++) sm.addNDFilter(1);
+			expect(sm.state.ndFilter.count).toBe(5);
+			// 6th should silently fail
+			sm.addNDFilter(1);
+			expect(sm.state.ndFilter.count).toBe(5);
+		});
+
+		it('recalculates after adding', () => {
+			const sm = createManager();
+			sm.initialize();
+			const ssBefore = sm.state.result.shutterSpeed.display;
+			sm.addNDFilter(10);
+			expect(sm.state.result.shutterSpeed.display).not.toBe(ssBefore);
+		});
+	});
+
+	describe('removeNDFilter', () => {
+		it('removes filter at index', () => {
+			const sm = createManager();
+			sm.initialize();
+			sm.addNDFilter(10); // stack: [ND8, ND1024]
+			sm.removeNDFilter(0); // remove ND8
+			expect(sm.state.ndFilter.count).toBe(1);
+			expect(sm.state.ndFilter.stops).toBe(10);
+		});
+
+		it('recalculates after removing', () => {
+			const sm = createManager();
+			sm.initialize();
+			sm.addNDFilter(10);
+			const ssBefore = sm.state.result.shutterSpeed.display;
+			sm.removeNDFilter(1);
+			expect(sm.state.result.shutterSpeed.display).not.toBe(ssBefore);
+		});
+	});
+
+	describe('clearNDFilters', () => {
+		it('empties the stack', () => {
+			const sm = createManager();
+			sm.initialize();
+			sm.addNDFilter(10);
+			sm.clearNDFilters();
+			expect(sm.state.ndFilter.isEmpty).toBe(true);
+			expect(sm.state.ndFilter.stops).toBe(0);
+		});
+
+		it('recalculates after clearing', () => {
+			const sm = createManager();
+			sm.initialize();
+			sm.clearNDFilters();
+			expect(sm.state.result).not.toBeNull();
+		});
+	});
+
+	describe('integration: two filters combined result', () => {
+		it('ND8 + ND1024 (13 stops) produces correct compensated SS', () => {
+			const sm = createManager();
+			sm.initialize();
+			sm.addNDFilter(10); // + ND1024 on top of default ND8
+			expect(sm.state.ndFilter.stops).toBe(13);
+			expect(sm.state.result.shutterSpeed.isBulb).toBe(true);
+		});
+	});
+
+	describe('reference indices', () => {
+		it('setShutterSpeed snapshots current Av/ISO as references', () => {
+			const sm = createManager();
+			sm.initialize();
+			sm.setAperture(18); // f/8
+			sm.setISO(9); // ISO 400
+			sm.setShutterSpeed(18); // 1/125
+			expect(sm.state.refApertureIndex).toBe(18);
+			expect(sm.state.refISOIndex).toBe(9);
+		});
+
+		it('setAperture does not change references', () => {
+			const sm = createManager();
+			sm.initialize();
+			const refAp = sm.state.refApertureIndex;
+			const refISO = sm.state.refISOIndex;
+			sm.setAperture(18);
+			expect(sm.state.refApertureIndex).toBe(refAp);
+			expect(sm.state.refISOIndex).toBe(refISO);
+		});
+
+		it('setISO does not change references', () => {
+			const sm = createManager();
+			sm.initialize();
+			const refAp = sm.state.refApertureIndex;
+			const refISO = sm.state.refISOIndex;
+			sm.setISO(9);
+			expect(sm.state.refApertureIndex).toBe(refAp);
+			expect(sm.state.refISOIndex).toBe(refISO);
+		});
+
+		it('raising ISO after ND reduces compensated SS', () => {
+			const sm = createManager();
+			sm.initialize();
+			// Default: SS=1/125(18), f/1.8(5), ISO 100(3), stack=[ND8(3)]
+			sm.clearNDFilters();
+			sm.addNDFilter(10); // ND1000
+			const ssBefore = sm.state.result.shutterSpeed.display;
+
+			sm.setISO(9); // ISO 400 (+6 third-stops)
+			const ssAfter = sm.state.result.shutterSpeed.display;
+
+			expect(ssBefore).not.toBe(ssAfter);
+			// Higher ISO → faster (shorter) compensated SS
+			expect(sm.state.result.shutterSpeed.seconds).toBeLessThan(
+				ShutterSpeed.fromIndex(18).shift(30).seconds,
+			);
 		});
 	});
 

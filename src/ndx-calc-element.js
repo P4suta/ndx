@@ -1,4 +1,5 @@
 import { ExposureCalculator } from './domain/exposure-calculator.js';
+import { ShutterSpeed } from './domain/shutter-speed.js';
 import { StateManager } from './state/state-manager.js';
 import { DiffRenderer } from './ui/diff-renderer.js';
 import { buildTemplate } from './ui/template.js';
@@ -67,61 +68,78 @@ class NDXCalcElement extends HTMLElement {
 			{ signal },
 		);
 
-		// Slider input (ND stops)
+		// Slider input → update output text only (visual preview)
 		root.addEventListener(
 			'input',
 			(e) => {
 				const target = /** @type {HTMLInputElement} */ (e.target);
-				if (target.dataset?.action === 'stops') {
-					sm.setNDStops(Number.parseInt(target.value, 10));
+				if (target.id === 'ndx-stops') {
+					const val = target.value;
+					const output = root.querySelector('.ndx__slider-output');
+					if (output) {
+						output.textContent = `${val} stop${val === '1' ? '' : 's'}`;
+					}
 				}
 			},
 			{ signal },
 		);
 
-		// Preset button clicks
+		// Click handler for data-action buttons
 		root.addEventListener(
 			'click',
 			(e) => {
-				const target = /** @type {HTMLElement} */ (e.target).closest('[data-action="preset"]');
-				if (!target) return;
-				sm.setNDStops(Number.parseInt(target.dataset.stops, 10));
-			},
-			{ signal },
-		);
-
-		// Keyboard navigation for preset radiogroup
-		root.addEventListener(
-			'keydown',
-			(e) => {
 				const target = /** @type {HTMLElement} */ (e.target);
-				if (target.getAttribute('role') !== 'radio') return;
-				const group = [...target.parentElement.children].filter(
-					(el) => el.getAttribute('role') === 'radio',
-				);
-				const idx = group.indexOf(target);
-				let next = -1;
-				switch (e.key) {
-					case 'ArrowRight':
-					case 'ArrowDown':
-						next = (idx + 1) % group.length;
-						break;
-					case 'ArrowLeft':
-					case 'ArrowUp':
-						next = (idx - 1 + group.length) % group.length;
-						break;
-					case 'Home':
-						next = 0;
-						break;
-					case 'End':
-						next = group.length - 1;
-						break;
-					default:
-						return;
+
+				// EV step buttons (±1 EV)
+				const evBtn = target.closest('[data-action="ev-step"]');
+				if (evBtn) {
+					const t = /** @type {HTMLElement} */ (evBtn).dataset.target;
+					const delta = Number.parseInt(/** @type {HTMLElement} */ (evBtn).dataset.delta, 10);
+					switch (t) {
+						case 'ss': {
+							const idx = sm.state.shutterSpeed.index + delta;
+							sm.setShutterSpeed(Math.max(0, Math.min(idx, ShutterSpeed.scaleLength - 1)));
+							break;
+						}
+						case 'aperture':
+							sm.setAperture(sm.state.aperture.index + delta);
+							break;
+						case 'iso':
+							sm.setISO(sm.state.iso.index + delta);
+							break;
+					}
+					return;
 				}
-				e.preventDefault();
-				group[next].focus();
-				group[next].click();
+
+				// Add preset
+				const preset = target.closest('[data-action="add-preset"]');
+				if (preset) {
+					sm.addNDFilter(Number.parseInt(/** @type {HTMLElement} */ (preset).dataset.stops, 10));
+					return;
+				}
+
+				// Add custom from slider
+				if (target.closest('[data-action="add-custom"]')) {
+					const slider = root.querySelector('#ndx-stops');
+					if (slider) {
+						sm.addNDFilter(Number.parseInt(/** @type {HTMLInputElement} */ (slider).value, 10));
+					}
+					return;
+				}
+
+				// Remove filter from stack
+				const removeBtn = target.closest('[data-action="remove-filter"]');
+				if (removeBtn) {
+					sm.removeNDFilter(
+						Number.parseInt(/** @type {HTMLElement} */ (removeBtn).dataset.filterIndex, 10),
+					);
+					return;
+				}
+
+				// Clear stack
+				if (target.closest('[data-action="clear-stack"]')) {
+					sm.clearNDFilters();
+				}
 			},
 			{ signal },
 		);

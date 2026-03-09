@@ -39,6 +39,8 @@ export class StateManager {
 	setShutterSpeed(index) {
 		this.#state = this.#state.with({
 			shutterSpeed: ShutterSpeed.fromIndex(index),
+			refApertureIndex: this.#state.aperture.index,
+			refISOIndex: this.#state.iso.index,
 		});
 		this.#recalculate();
 	}
@@ -57,10 +59,11 @@ export class StateManager {
 		this.#recalculate();
 	}
 
-	setNDStops(stops) {
+	addNDFilter(stops) {
 		try {
+			const filter = new NDFilter(stops);
 			this.#state = this.#state.with({
-				ndFilter: new NDFilter(stops),
+				ndFilter: this.#state.ndFilter.add(filter),
 			});
 			this.#recalculate();
 		} catch (e) {
@@ -69,9 +72,31 @@ export class StateManager {
 		}
 	}
 
+	removeNDFilter(index) {
+		this.#state = this.#state.with({
+			ndFilter: this.#state.ndFilter.removeAt(index),
+		});
+		this.#recalculate();
+	}
+
+	clearNDFilters() {
+		this.#state = this.#state.with({
+			ndFilter: this.#state.ndFilter.clear(),
+		});
+		this.#recalculate();
+	}
+
 	#recalculate() {
 		const { shutterSpeed, aperture, iso, ndFilter } = this.#state;
-		const result = this.#calculator.compensate(shutterSpeed, aperture, iso, ndFilter);
+		const { refApertureIndex, refISOIndex } = this.#state;
+		const result = this.#calculator.compensate(
+			shutterSpeed,
+			aperture,
+			iso,
+			ndFilter,
+			refApertureIndex,
+			refISOIndex,
+		);
 		this.#state = this.#state.with({ result });
 		this.#notify();
 	}

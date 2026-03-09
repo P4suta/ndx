@@ -7,24 +7,23 @@ import { ExposureResult } from './exposure-result.js';
 export class ExposureCalculator {
 	/**
 	 * Calculate all compensation results for an ND filter.
+	 * When aperture/ISO differ from their reference values (at the time base SS was set),
+	 * the compensated SS is adjusted to maintain the same scene exposure.
 	 *
 	 * @param {import('./shutter-speed.js').ShutterSpeed} shutterSpeed
 	 * @param {import('./aperture.js').Aperture} aperture
 	 * @param {import('./iso.js').ISO} iso
-	 * @param {import('./nd-filter.js').NDFilter} ndFilter
+	 * @param {import('./nd-filter.js').NDFilter | import('./nd-filter-stack.js').NDFilterStack} ndFilter
+	 * @param {number} refApertureIndex - Aperture index when base SS was set
+	 * @param {number} refISOIndex - ISO index when base SS was set
 	 * @returns {ExposureResult}
 	 */
-	compensate(shutterSpeed, aperture, iso, ndFilter) {
-		const thirdStops = ndFilter.thirdStops;
+	compensate(shutterSpeed, aperture, iso, ndFilter, refApertureIndex, refISOIndex) {
+		const avDelta = aperture.index - refApertureIndex;
+		const isoDelta = iso.index - refISOIndex;
+		const totalShift = ndFilter.thirdStops + avDelta - isoDelta;
 
-		// Primary: compensate via shutter speed (positive = slower)
-		const ssCompensated = shutterSpeed.shift(thirdStops);
-
-		// Alternative: compensate via aperture (negative = open up)
-		const apCompensated = aperture.shift(-thirdStops);
-
-		// Alternative: compensate via ISO (positive = higher sensitivity)
-		const isoCompensated = iso.shift(thirdStops);
+		const ssCompensated = shutterSpeed.shift(totalShift);
 
 		// EV calculation
 		const evBefore = this.exposureValue(shutterSpeed, aperture, iso);
@@ -32,8 +31,6 @@ export class ExposureCalculator {
 
 		return new ExposureResult({
 			shutterSpeed: ssCompensated,
-			apertureComp: apCompensated,
-			isoComp: isoCompensated,
 			evBefore,
 			evAfter,
 			ndStops: ndFilter.stops,

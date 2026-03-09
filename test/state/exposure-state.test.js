@@ -19,12 +19,22 @@ describe('ExposureState', () => {
 			expect(state.iso.display).toBe('ISO 100');
 		});
 
-		it('has ndFilter at ND8 (3 stops)', () => {
+		it('has ndFilter as NDFilterStack containing one ND8', () => {
 			expect(state.ndFilter.stops).toBe(3);
+			expect(state.ndFilter.count).toBe(1);
+			expect(state.ndFilter.filters[0].stops).toBe(3);
 		});
 
 		it('has null result', () => {
 			expect(state.result).toBeNull();
+		});
+
+		it('has correct refApertureIndex', () => {
+			expect(state.refApertureIndex).toBe(Aperture.defaultIndex());
+		});
+
+		it('has correct refISOIndex', () => {
+			expect(state.refISOIndex).toBe(3); // ISO.defaultIndex()
 		});
 
 		it('is frozen', () => {
@@ -58,6 +68,20 @@ describe('ExposureState', () => {
 		it('returns frozen state', () => {
 			const updated = ExposureState.default().with({});
 			expect(Object.isFrozen(updated)).toBe(true);
+		});
+
+		it('propagates reference indices', () => {
+			const state = ExposureState.default().with({ refApertureIndex: 18, refISOIndex: 9 });
+			expect(state.refApertureIndex).toBe(18);
+			expect(state.refISOIndex).toBe(9);
+		});
+
+		it('preserves reference indices when not updated', () => {
+			const state = ExposureState.default()
+				.with({ refApertureIndex: 18, refISOIndex: 9 })
+				.with({ shutterSpeed: ShutterSpeed.fromIndex(0) });
+			expect(state.refApertureIndex).toBe(18);
+			expect(state.refISOIndex).toBe(9);
 		});
 	});
 });

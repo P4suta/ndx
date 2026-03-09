@@ -1,3 +1,20 @@
+import { toSuperscript } from './nd-filter.js';
+
+/**
+ * Format an integer with comma separators (locale-independent).
+ * @param {number} n
+ * @returns {string}
+ */
+function formatWithCommas(n) {
+	const s = String(n);
+	const result = [];
+	for (let i = s.length - 1, c = 0; i >= 0; i--, c++) {
+		if (c > 0 && c % 3 === 0) result.push(',');
+		result.push(s[i]);
+	}
+	return result.reverse().join('');
+}
+
 /**
  * Shutter speed value object represented as a 1/3-stop index.
  * Immutable — shift() returns a new instance.
@@ -157,6 +174,19 @@ export class ShutterSpeed {
 	/** Whether this is in bulb territory (beyond 30s standard range) */
 	get isBulb() {
 		return this.#index >= ShutterSpeed.#DISPLAY.length;
+	}
+
+	/** Exact seconds display for the result sub-line. */
+	get exactDisplay() {
+		const s = this.seconds;
+		if (s < 0.001) {
+			const exp = Math.floor(Math.log10(s));
+			const mantissa = +(s / 10 ** exp).toFixed(2);
+			return `${mantissa}\u00d710${toSuperscript(exp)}s`;
+		}
+		if (s < 1) return `${+s.toPrecision(3)}s`;
+		if (s < 60) return `${+s.toFixed(1)}s`;
+		return `${formatWithCommas(Math.round(s))}s`;
 	}
 
 	/**

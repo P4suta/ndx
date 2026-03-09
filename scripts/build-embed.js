@@ -23,7 +23,7 @@ const embed = `<!-- ndx v1.0.0 | MIT License | https://github.com/P4suta/ndx -->
     ND Filter Calculator requires JavaScript.
   </p>
 </ndx-calc>
-<script>${js}</script>
+<script>(()=>{${js}})()</script>
 `;
 
 writeFileSync('dist/ndx.html', embed);

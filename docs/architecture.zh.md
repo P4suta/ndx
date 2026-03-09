@@ -74,8 +74,6 @@ N = 光圈值，t = 曝光时间（秒），S = ISO感光度。
 
 ND滤镜n档将入射光量减少2ⁿ倍。维持等效曝光需要：
 - 快门速度减慢n档（曝光时间乘以2ⁿ）
-- 光圈开大n档（f值除以2^(n/2)）
-- ISO提高n档（ISO值乘以2ⁿ）
 
 ### 1/3档索引系统（核心设计）
 
@@ -125,10 +123,9 @@ classDiagram
     }
     class ExposureResult {
         +ShutterSpeed shutterSpeed
-        +Aperture apertureComp
-        +ISO isoComp
         +float evBefore
         +float evAfter
+        +int ndStops
     }
     ExposureCalculator --> ShutterSpeed
     ExposureCalculator --> Aperture
@@ -149,13 +146,16 @@ classDiagram
 
 > **设计笔记：钳位 vs 外推** — ShutterSpeed外推至B门区域（超过30秒的长曝光在实际拍摄中确实使用）。Aperture/ISO钳位（超过f/1.0或f/32的值属于物理镜头限制，没有实际意义）。
 
+### ExposureCalculator
+无状态服务。`compensate()`方法接受参考光圈/ISO索引，当光圈或ISO变化时重新分配ND补偿：`totalShift = ndThirdStops + (curAv - refAv) - (curISO - refISO)`。
+
 ## 状态管理
 
 ### ExposureState
-通过Object.freeze()实现不可变对象。`with()`方法返回部分更新的新实例。
+通过Object.freeze()实现不可变对象。`with()`方法返回部分更新的新实例。字段包括：`shutterSpeed`、`aperture`、`iso`、`ndFilter`、`result`、`refApertureIndex`、`refISOIndex`。参考索引用于EV锁定补偿。
 
 ### StateManager
-持有ExposureCalculator引用。观察者模式（Set<listener>）。各setter更新状态→重新计算→通知。setNDStops捕获RangeError。
+持有ExposureCalculator引用。观察者模式（Set<listener>）。各setter更新状态→重新计算→通知。`setShutterSpeed`额外快照当前光圈/ISO索引作为参考值。setNDStops捕获RangeError。
 
 ## 渲染
 

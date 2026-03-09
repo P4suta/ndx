@@ -1,6 +1,7 @@
 import { Aperture } from '../domain/aperture.js';
 import { ISO } from '../domain/iso.js';
 import { NDFilter } from '../domain/nd-filter.js';
+import { NDFilterStack } from '../domain/nd-filter-stack.js';
 import { ShutterSpeed } from '../domain/shutter-speed.js';
 
 /**
@@ -14,17 +15,23 @@ export class ExposureState {
 	aperture;
 	/** @type {ISO} */
 	iso;
-	/** @type {NDFilter} */
+	/** @type {NDFilterStack} */
 	ndFilter;
 	/** @type {import('../domain/exposure-result.js').ExposureResult|null} */
 	result;
+	/** @type {number} Aperture index when base SS was set */
+	refApertureIndex;
+	/** @type {number} ISO index when base SS was set */
+	refISOIndex;
 
-	constructor({ shutterSpeed, aperture, iso, ndFilter, result }) {
+	constructor({ shutterSpeed, aperture, iso, ndFilter, result, refApertureIndex, refISOIndex }) {
 		this.shutterSpeed = shutterSpeed;
 		this.aperture = aperture;
 		this.iso = iso;
 		this.ndFilter = ndFilter;
 		this.result = result;
+		this.refApertureIndex = refApertureIndex;
+		this.refISOIndex = refISOIndex;
 		Object.freeze(this);
 	}
 
@@ -34,8 +41,10 @@ export class ExposureState {
 			shutterSpeed: ShutterSpeed.fromIndex(ShutterSpeed.defaultIndex()),
 			aperture: Aperture.fromIndex(Aperture.defaultIndex()),
 			iso: ISO.fromIndex(ISO.defaultIndex()),
-			ndFilter: new NDFilter(3),
+			ndFilter: NDFilterStack.of(new NDFilter(3)),
 			result: null,
+			refApertureIndex: Aperture.defaultIndex(),
+			refISOIndex: ISO.defaultIndex(),
 		});
 	}
 

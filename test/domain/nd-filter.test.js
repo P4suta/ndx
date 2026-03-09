@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NDFilter } from '../../src/domain/nd-filter.js';
+import { formatTransmission, NDFilter, toSuperscript } from '../../src/domain/nd-filter.js';
 
 describe('NDFilter', () => {
 	describe('constructor validation', () => {
@@ -61,27 +61,25 @@ describe('NDFilter', () => {
 	});
 
 	describe('transmission', () => {
-		it('1 stop → 50%', () => {
-			expect(new NDFilter(1).transmission).toBe(50);
+		it('1 stop → "50"', () => {
+			expect(new NDFilter(1).transmission).toBe('50');
 		});
 
-		it('3 stops → 12.5%', () => {
-			expect(new NDFilter(3).transmission).toBe(12.5);
+		it('3 stops → "12.5"', () => {
+			expect(new NDFilter(3).transmission).toBe('12.5');
 		});
 
-		it('10 stops → 0.098%', () => {
-			const t = new NDFilter(10).transmission;
-			expect(t).toBeCloseTo(0.098, 3);
+		it('10 stops → "0.098"', () => {
+			expect(new NDFilter(10).transmission).toBe('0.098');
 		});
 
-		it('formats ≥1 with 1 decimal', () => {
-			const t = new NDFilter(2).transmission; // 25
-			expect(Number.isInteger(t) || String(t).split('.')[1]?.length <= 1).toBe(true);
+		it('20 stops → scientific notation', () => {
+			const t = new NDFilter(20).transmission;
+			expect(t).toMatch(/×10/);
 		});
 
-		it('formats <1 with 3 decimals', () => {
-			const t = new NDFilter(10).transmission;
-			expect(String(t).split('.')[1]?.length).toBeLessThanOrEqual(3);
+		it('returns a string', () => {
+			expect(typeof new NDFilter(3).transmission).toBe('string');
 		});
 	});
 
@@ -114,5 +112,45 @@ describe('NDFilter', () => {
 			];
 			expect(NDFilter.PRESETS).toEqual(expected);
 		});
+	});
+});
+
+describe('toSuperscript', () => {
+	it('converts positive integer', () => {
+		expect(toSuperscript(5)).toBe('\u2075');
+	});
+
+	it('converts negative integer', () => {
+		expect(toSuperscript(-5)).toBe('\u207b\u2075');
+	});
+
+	it('converts multi-digit', () => {
+		expect(toSuperscript(12)).toBe('\u00b9\u00b2');
+	});
+
+	it('converts zero', () => {
+		expect(toSuperscript(0)).toBe('\u2070');
+	});
+});
+
+describe('formatTransmission', () => {
+	it('large value (≥1)', () => {
+		expect(formatTransmission(12.5)).toBe('12.5');
+	});
+
+	it('medium value (0.01–1)', () => {
+		expect(formatTransmission(0.098)).toBe('0.098');
+	});
+
+	it('tiny value (<0.01) uses scientific notation', () => {
+		const result = formatTransmission(0.0000954);
+		expect(result).toMatch(/×10/);
+		expect(result).toContain('\u207b');
+	});
+
+	it('formats 100 / 2^20 correctly', () => {
+		const t = 100 / 2 ** 20;
+		const result = formatTransmission(t);
+		expect(result).toMatch(/^9\.54×10\u207b\u2075$/);
 	});
 });

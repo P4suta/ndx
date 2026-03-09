@@ -24,18 +24,23 @@ export function buildTemplate() {
     </section>
     <section class="ndx__filter" aria-label="ND Filter">
       <h3 class="ndx__section-title">ND Filter</h3>
-      <div class="ndx__presets" role="radiogroup" aria-label="ND presets">
-        ${NDFilter.PRESETS.map((p) => `<button class="ndx__preset" role="radio" aria-checked="${p.stops === 3}" data-action="preset" data-stops="${p.stops}">${p.label}</button>`).join('')}
+      <div class="ndx__presets" role="group" aria-label="Add ND preset">
+        ${NDFilter.PRESETS.map((p) => `<button class="ndx__preset" data-action="add-preset" data-stops="${p.stops}">+ ${p.label}</button>`).join('')}
       </div>
       <div class="ndx__slider-group">
         <input type="range" id="ndx-stops" class="ndx__slider"
                min="1" max="20" value="3" step="1"
-               data-action="stops"
-               aria-label="ND stops" />
+               aria-label="Custom ND stops" />
         <output class="ndx__slider-output" for="ndx-stops">3 stops</output>
+        <button class="ndx__stack-add" data-action="add-custom"
+                aria-label="Add custom filter">Add</button>
       </div>
+      <div class="ndx__stack" role="list" aria-label="Stacked filters"
+           data-bind="stackChips"></div>
+      <button class="ndx__stack-clear" data-action="clear-stack"
+              data-bind="clearButton" hidden>Clear All</button>
       <dl class="ndx__filter-info">
-        ${filterInfoItem('Filter', 'filterName', 'ND8')}
+        ${filterInfoItem('Total', 'filterName', 'ND8')}
         ${filterInfoItem('Optical Density', 'opticalDensity', '0.90')}
         ${filterInfoItem('Transmission', 'transmission', '12.5%')}
       </dl>
@@ -45,6 +50,7 @@ export function buildTemplate() {
       <div class="ndx__result-main">
         <span class="ndx__result-label">Shutter Speed</span>
         <span class="ndx__result-value" data-bind="resultSS">--</span>
+        <span class="ndx__result-exact" data-bind="resultSSExact"></span>
         <span class="ndx__result-badge" data-bind="bulbBadge" hidden>BULB</span>
       </div>
       <div class="ndx__result-shift" data-bind="shiftInfo"></div>
@@ -53,19 +59,6 @@ export function buildTemplate() {
         <span class="ndx__result-ev-arrow">\u2192</span>
         <span>EV <span data-bind="evAfter">--</span></span>
       </div>
-      <details class="ndx__alternatives">
-        <summary>Alternative Compensation</summary>
-        <div class="ndx__alt-item">
-          <span class="ndx__alt-label">Aperture</span>
-          <span class="ndx__alt-value" data-bind="altAperture">--</span>
-          <span class="ndx__alt-warning" data-bind="apWarning" hidden>\u26A0 Limit</span>
-        </div>
-        <div class="ndx__alt-item">
-          <span class="ndx__alt-label">ISO</span>
-          <span class="ndx__alt-value" data-bind="altISO">--</span>
-          <span class="ndx__alt-warning" data-bind="isoWarning" hidden>\u26A0 Limit</span>
-        </div>
-      </details>
     </section>
   </div>
 </div>
@@ -90,7 +83,15 @@ function paramSelect(label, action, length, displayAt, defaultIdx) {
 	return `
     <div class="ndx__param">
       <label class="ndx__label" for="${id}">${label}</label>
-      <select id="${id}" class="ndx__select" data-action="${action}">${options}</select>
+      <div class="ndx__param-controls">
+        <button class="ndx__ev-step" data-action="ev-step"
+                data-target="${action}" data-delta="-3"
+                aria-label="${label} \u22121 EV">\u22121</button>
+        <select id="${id}" class="ndx__select" data-action="${action}">${options}</select>
+        <button class="ndx__ev-step" data-action="ev-step"
+                data-target="${action}" data-delta="3"
+                aria-label="${label} +1 EV">+1</button>
+      </div>
     </div>
   `;
 }

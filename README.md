@@ -50,7 +50,7 @@ No npm publish. No CDN link. No external files. Just paste and it works.
 
 ## Features
 
-- **Shutter Speed / Aperture / ISO compensation** — Primary shutter speed adjustment with aperture and ISO alternatives
+- **Shutter speed compensation** — Calculates the adjusted shutter speed for any ND filter strength
 - **ND1–ND20 range** — Full 1 to 20 stop range with quick presets (ND4, ND8, ND16, ND64, ND1000)
 - **Bulb territory extrapolation** — Beyond 30s, automatically calculates and formats as minutes/hours (e.g., `8m 32s`, `2h 15m`)
 - **EV display** — Shows exposure value before and after ND filter application

@@ -16,6 +16,8 @@ jobs:
       - run: bun run lint
       - run: bun run test
       - run: bun run build
+      - name: Verify dist is up to date
+        run: git diff --exit-code dist/
 
   e2e:
     runs-on: ubuntu-latest

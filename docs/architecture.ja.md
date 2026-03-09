@@ -74,8 +74,6 @@ N = 絞り値、t = 露出時間（秒）、S = ISO感度。
 
 NDフィルターのn段は入射光量を2ⁿ分の1に減少させる。同一露出維持には:
 - シャッタースピードをn段遅くする（露出時間を2ⁿ倍）
-- 絞りをn段開ける（f値を2^(n/2)分の1）
-- ISOをn段上げる（ISO値を2ⁿ倍）
 
 ### 1/3段インデックス方式（核心設計）
 
@@ -125,10 +123,9 @@ classDiagram
     }
     class ExposureResult {
         +ShutterSpeed shutterSpeed
-        +Aperture apertureComp
-        +ISO isoComp
         +float evBefore
         +float evAfter
+        +int ndStops
     }
     ExposureCalculator --> ShutterSpeed
     ExposureCalculator --> Aperture
@@ -149,13 +146,16 @@ classDiagram
 
 > **設計ノート: クランプ vs 外挿** — ShutterSpeedはバルブ領域に外挿する（30秒超の長時間露光は実用的に使用される）。Aperture/ISOはクランプする（f/1.0やf/32を超える値は物理的なレンズの制約であり実用的意味がない）。
 
+### ExposureCalculator
+ステートレスなサービス。`compensate()`メソッドは基準絞り/ISOインデックスを受け取り、絞りやISO変更時にND補正を再配分する: `totalShift = ndThirdStops + (curAv - refAv) - (curISO - refISO)`。
+
 ## 状態管理
 
 ### ExposureState
-Object.freeze()による不変オブジェクト。`with()`メソッドで部分更新した新しいインスタンスを返す。
+Object.freeze()による不変オブジェクト。`with()`メソッドで部分更新した新しいインスタンスを返す。フィールド: `shutterSpeed`, `aperture`, `iso`, `ndFilter`, `result`, `refApertureIndex`, `refISOIndex`。参照インデックスはEVロック補正に使用される。
 
 ### StateManager
-ExposureCalculatorへの参照を保持。オブザーバーパターン（Set<listener>）。各セッター（setShutterSpeed, setAperture, setISO, setNDStops）が状態更新→再計算→通知。setNDStopsはRangeErrorをキャッチ。
+ExposureCalculatorへの参照を保持。オブザーバーパターン（Set<listener>）。各セッター（setShutterSpeed, setAperture, setISO, setNDStops）が状態更新→再計算→通知。`setShutterSpeed`は現在の絞り/ISOインデックスを参照値としてスナップショットする。setNDStopsはRangeErrorをキャッチ。
 
 ## レンダリング
 

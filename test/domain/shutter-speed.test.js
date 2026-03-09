@@ -215,6 +215,36 @@ describe('ShutterSpeed', () => {
 		});
 	});
 
+	describe('exactDisplay', () => {
+		it('sub-millisecond uses scientific notation', () => {
+			const ss = ShutterSpeed.fromIndex(0); // 1/8000 = 0.000125s
+			expect(ss.exactDisplay).toBe('1.25\u00d710\u207b\u2074s');
+		});
+
+		it('sub-second shows toPrecision(3)', () => {
+			const ss = ShutterSpeed.fromIndex(18); // 1/125 = 0.008s
+			expect(ss.exactDisplay).toBe('0.008s');
+		});
+
+		it('seconds < 60 shows toFixed(1)', () => {
+			const ss = ShutterSpeed.fromIndex(54); // 30"
+			expect(ss.exactDisplay).toBe('30s');
+		});
+
+		it('>= 60s shows comma-separated integer', () => {
+			// index 57 = 30 * 2^(3/3) = 60s
+			const ss = ShutterSpeed.fromIndex(57);
+			expect(ss.exactDisplay).toMatch(/^\d+s$/);
+		});
+
+		it('very long exposure uses commas', () => {
+			// 30" + 20 stops = index 114 → hours
+			const ss = ShutterSpeed.fromIndex(114);
+			expect(ss.exactDisplay).toMatch(/,/);
+			expect(ss.exactDisplay).toMatch(/s$/);
+		});
+	});
+
 	describe('negative index', () => {
 		it('displays as "<1/8000"', () => {
 			const ss = ShutterSpeed.fromIndex(-1);

@@ -31,44 +31,54 @@ export class DiffRenderer {
 
 		// Filter info
 		this.#setText('filterName', ndFilter.display);
-		this.#setText('opticalDensity', ndFilter.opticalDensity.toFixed(2));
+		this.#setText('opticalDensity', ndFilter.isEmpty ? '0' : ndFilter.opticalDensity.toFixed(2));
 		this.#setText('transmission', `${ndFilter.transmission}%`);
 
-		// Slider sync
-		const slider = this.#root.querySelector('#ndx-stops');
-		if (slider && +slider.value !== ndFilter.stops) {
-			slider.value = String(ndFilter.stops);
-		}
-		const output = this.#root.querySelector('.ndx__slider-output');
-		if (output) {
-			output.textContent = `${ndFilter.stops} stop${ndFilter.stops > 1 ? 's' : ''}`;
+		// Stack chips
+		const stackContainer = this.#bindCache.get('stackChips');
+		if (stackContainer) {
+			stackContainer.innerHTML = ndFilter.filters
+				.map(
+					(f, i) =>
+						`<span class="ndx__stack-chip" role="listitem">${f.display} <button class="ndx__stack-chip-remove" data-action="remove-filter" data-filter-index="${i}" aria-label="Remove ${f.display}">\u00d7</button></span>`,
+				)
+				.join('');
 		}
 
-		// Preset buttons sync
+		// Clear button visibility
+		this.#setHidden('clearButton', ndFilter.count < 2);
+
+		// Preset buttons: disable when stack is full
+		const isFull = ndFilter.count >= 5;
 		const presets = this.#root.querySelectorAll('.ndx__preset');
 		for (const btn of presets) {
-			const isActive = +btn.dataset.stops === ndFilter.stops;
-			btn.setAttribute('aria-checked', String(isActive));
-			btn.classList.toggle('ndx__preset--active', isActive);
+			/** @type {HTMLButtonElement} */ (btn).disabled = isFull;
 		}
 
+		// Add button: disable when stack is full
+		const addBtn = this.#root.querySelector('.ndx__stack-add');
+		if (addBtn) /** @type {HTMLButtonElement} */ (addBtn).disabled = isFull;
+
 		// Main result
+		const totalStops = ndFilter.stops;
 		this.#setText('resultSS', result.shutterSpeed.display);
+		this.#setText('resultSSExact', result.shutterSpeed.exactDisplay);
 		this.#setHidden('bulbBadge', !result.shutterSpeed.isBulb);
 		this.#setText(
 			'shiftInfo',
-			`\u2190 ${ndFilter.stops} stop${ndFilter.stops > 1 ? 's' : ''} slower`,
+			totalStops === 0
+				? 'No ND filter'
+				: `\u2190 ${totalStops} stop${totalStops > 1 ? 's' : ''} slower`,
 		);
 
 		// EV
 		this.#setText('evBefore', result.evBefore.toFixed(1));
 		this.#setText('evAfter', result.evAfter.toFixed(1));
 
-		// Alternative compensations
-		this.#setText('altAperture', result.apertureComp.display);
-		this.#setHidden('apWarning', !result.apertureComp.isClamped);
-		this.#setText('altISO', result.isoComp.display);
-		this.#setHidden('isoWarning', !result.isoComp.isClamped);
+		// Sync select elements (for ±1EV button changes)
+		this.#syncSelect('ss', state.shutterSpeed.index);
+		this.#syncSelect('aperture', state.aperture.index);
+		this.#syncSelect('iso', state.iso.index);
 	}
 
 	/**
@@ -89,5 +99,19 @@ export class DiffRenderer {
 	#setHidden(key, hidden) {
 		const el = this.#bindCache.get(key);
 		if (el) el.hidden = hidden;
+	}
+
+	/**
+	 * Sync a select element's value with state index.
+	 * @param {string} action - data-action value
+	 * @param {number} index
+	 */
+	#syncSelect(action, index) {
+		const select = /** @type {HTMLSelectElement|null} */ (
+			this.#root.querySelector(`[data-action="${action}"]`)
+		);
+		if (select && +select.value !== index) {
+			select.value = String(index);
+		}
 	}
 }

@@ -37,96 +37,144 @@ test.describe('ndx-calc', () => {
 		expect(before).not.toBe(after);
 	});
 
-	test('preset click updates slider and result', async ({ page }) => {
+	test('clicking preset adds chip and updates result', async ({ page }) => {
 		const shadow = page.locator('ndx-calc');
 
-		// Click ND1000 preset
+		// Click ND1000 preset — adds to default ND8 stack
 		await shadow.locator('[data-stops="10"]').click();
 
-		// Slider should sync
-		const slider = shadow.locator('#ndx-stops');
-		await expect(slider).toHaveValue('10');
+		// Should have 2 chips now (ND8 default + ND1024)
+		const chips = shadow.locator('.ndx__stack-chip');
+		await expect(chips).toHaveCount(2);
 
-		// Output should show stops
-		const output = shadow.locator('.ndx__slider-output');
-		await expect(output).toHaveText('10 stops');
+		// Result should show BULB (3 + 10 = 13 stops on 1/125)
+		const badge = shadow.locator('[data-bind="bulbBadge"]');
+		await expect(badge).toBeVisible();
+	});
 
-		// Preset should be active
-		const preset = shadow.locator('[data-stops="10"]');
-		await expect(preset).toHaveAttribute('aria-checked', 'true');
+	test('adding two filters shows combined result and clear button', async ({ page }) => {
+		const shadow = page.locator('ndx-calc');
+
+		// Add ND1000
+		await shadow.locator('[data-stops="10"]').click();
+
+		// Should have 2 chips
+		const chips = shadow.locator('.ndx__stack-chip');
+		await expect(chips).toHaveCount(2);
+
+		// Clear button should be visible
+		const clearBtn = shadow.locator('[data-action="clear-stack"]');
+		await expect(clearBtn).toBeVisible();
+
+		// Filter name should show combined
+		const filterName = shadow.locator('[data-bind="filterName"]');
+		await expect(filterName).toHaveText('ND8 + ND1024');
+	});
+
+	test('removing filter from stack updates result', async ({ page }) => {
+		const shadow = page.locator('ndx-calc');
+
+		// Add ND1000 to make stack [ND8, ND1024]
+		await shadow.locator('[data-stops="10"]').click();
+		const resultBefore = await shadow.locator('[data-bind="resultSS"]').textContent();
+
+		// Remove first filter (ND8)
+		await shadow.locator('.ndx__stack-chip-remove').first().click();
+		const resultAfter = await shadow.locator('[data-bind="resultSS"]').textContent();
+
+		expect(resultBefore).not.toBe(resultAfter);
+		const chips = shadow.locator('.ndx__stack-chip');
+		await expect(chips).toHaveCount(1);
+	});
+
+	test('clear all empties stack', async ({ page }) => {
+		const shadow = page.locator('ndx-calc');
+
+		// Add a second filter
+		await shadow.locator('[data-stops="10"]').click();
+
+		// Click clear
+		await shadow.locator('[data-action="clear-stack"]').click();
+
+		// Stack should be empty
+		const chips = shadow.locator('.ndx__stack-chip');
+		await expect(chips).toHaveCount(0);
+
+		// Shift info should show "No ND filter"
+		const shiftInfo = shadow.locator('[data-bind="shiftInfo"]');
+		await expect(shiftInfo).toHaveText('No ND filter');
 	});
 
 	test('ND1000 on 1/125 shows BULB badge', async ({ page }) => {
 		const shadow = page.locator('ndx-calc');
 
-		// Ensure SS is 1/125 (default)
-		await shadow.locator('[data-stops="10"]').click(); // ND1000
-
+		// Clear default, add ND1000 alone
+		// Default has ND8, already shows bulb at 1/125
+		// Just verify bulb is visible with the default ND8
 		const badge = shadow.locator('[data-bind="bulbBadge"]');
+		// ND8 (3 stops) on 1/125 = 1/15, not bulb
+		// Need ND1000: click preset to add, then check
+		await shadow.locator('[data-stops="10"]').click(); // adds ND1000, total 13 stops
 		await expect(badge).toBeVisible();
 	});
 
-	test('slider changes update filter info', async ({ page }) => {
+	test('slider add button adds custom filter', async ({ page }) => {
 		const shadow = page.locator('ndx-calc');
 		const slider = shadow.locator('#ndx-stops');
 
-		await slider.fill('10');
+		await slider.fill('6');
 		await slider.dispatchEvent('input');
 
-		const filterName = shadow.locator('[data-bind="filterName"]');
-		await expect(filterName).toHaveText('ND1024');
+		// Click Add button
+		await shadow.locator('[data-action="add-custom"]').click();
+
+		// Should have 2 chips (default ND8 + custom ND64)
+		const chips = shadow.locator('.ndx__stack-chip');
+		await expect(chips).toHaveCount(2);
 	});
 
-	test('keyboard navigation on presets', async ({ page }) => {
+	test('changing ISO after ND adjusts compensated SS', async ({ page }) => {
 		const shadow = page.locator('ndx-calc');
+		const resultSS = shadow.locator('[data-bind="resultSS"]');
 
-		// Focus first preset (ND4)
-		const firstPreset = shadow.locator('[data-stops="2"]');
-		await firstPreset.focus();
-
-		// Arrow right to ND8
-		await page.keyboard.press('ArrowRight');
-		const activePreset = shadow.locator('[data-stops="3"]');
-		await expect(activePreset).toHaveAttribute('aria-checked', 'true');
-
-		// Arrow right to ND16
-		await page.keyboard.press('ArrowRight');
-		const nd16 = shadow.locator('[data-stops="4"]');
-		await expect(nd16).toHaveAttribute('aria-checked', 'true');
-
-		// Home key
-		await page.keyboard.press('Home');
-		await expect(firstPreset).toHaveAttribute('aria-checked', 'true');
-
-		// End key
-		await page.keyboard.press('End');
-		const lastPreset = shadow.locator('[data-stops="10"]');
-		await expect(lastPreset).toHaveAttribute('aria-checked', 'true');
-	});
-
-	test('details expands to show alternative compensation', async ({ page }) => {
-		const shadow = page.locator('ndx-calc');
-		const details = shadow.locator('.ndx__alternatives');
-		const summary = details.locator('summary');
-
-		await summary.click();
-		const altAperture = shadow.locator('[data-bind="altAperture"]');
-		await expect(altAperture).toBeVisible();
-		await expect(altAperture).not.toHaveText('--');
-	});
-
-	test('clamp warning shows for aperture at limit', async ({ page }) => {
-		const shadow = page.locator('ndx-calc');
-
-		// Set aperture to f/1.0 (index 0) and strong ND
-		await shadow.locator('[data-action="aperture"]').selectOption('0');
+		// Add ND1000
 		await shadow.locator('[data-stops="10"]').click();
+		const ssBefore = await resultSS.textContent();
 
-		// Open alternatives
-		await shadow.locator('.ndx__alternatives summary').click();
+		// Raise ISO
+		const isoSelect = shadow.locator('[data-action="iso"]');
+		await isoSelect.selectOption('9'); // ISO 400
+		const ssAfter = await resultSS.textContent();
 
-		const apWarning = shadow.locator('[data-bind="apWarning"]');
-		await expect(apWarning).toBeVisible();
+		expect(ssBefore).not.toBe(ssAfter);
+	});
+
+	test('±1EV button changes SS select value', async ({ page }) => {
+		const shadow = page.locator('ndx-calc');
+		const ssSelect = shadow.locator('[data-action="ss"]');
+		const before = await ssSelect.inputValue();
+
+		// Click +1 EV button for SS
+		await shadow.locator('[data-action="ev-step"][data-target="ss"][data-delta="3"]').click();
+		const after = await ssSelect.inputValue();
+		expect(Number(after)).toBe(Number(before) + 3);
+	});
+
+	test('−1EV button changes SS select value', async ({ page }) => {
+		const shadow = page.locator('ndx-calc');
+		const ssSelect = shadow.locator('[data-action="ss"]');
+		const before = await ssSelect.inputValue();
+
+		// Click −1 EV button for SS
+		await shadow.locator('[data-action="ev-step"][data-target="ss"][data-delta="-3"]').click();
+		const after = await ssSelect.inputValue();
+		expect(Number(after)).toBe(Number(before) - 3);
+	});
+
+	test('exact SS display is shown', async ({ page }) => {
+		const shadow = page.locator('ndx-calc');
+		const exact = shadow.locator('[data-bind="resultSSExact"]');
+		await expect(exact).toContainText('s');
 	});
 
 	test('responsive layout', async ({ page }) => {

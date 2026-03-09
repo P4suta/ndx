@@ -70,7 +70,7 @@ Every user interaction follows the same five-step path through the system:
 
 1. **User operates the UI** — A select element changes, a preset button is clicked, or the ND stops slider is adjusted.
 2. **EventDelegator captures the event** — The delegated listener on the Shadow Root intercepts the event, reads the `data-action` attribute to determine what kind of action it is, and translates it into the appropriate `StateManager` method call.
-3. **StateManager invokes ExposureCalculator** — The state manager calls the calculator with the updated input parameters. The calculator produces a new `ExposureResult` containing the compensated shutter speed, aperture, ISO, and EV values.
+3. **StateManager invokes ExposureCalculator** — The state manager calls the calculator with the updated input parameters. The calculator produces a new `ExposureResult` containing the compensated shutter speed and EV values.
 4. **StateManager compares old and new state** — The manager creates a new `ExposureState` via `with()`, compares it against the previous state, and notifies all subscribed observers (the renderer) of the change.
 5. **DiffRenderer updates the DOM** — The renderer walks its cached binding map, compares each bound value against the corresponding DOM element's current text, and writes only the values that have actually changed.
 
@@ -109,8 +109,6 @@ Where **N** is the f-number, **t** is the exposure time in seconds, and **S** is
 An ND filter of **n** stops reduces the light reaching the sensor by a factor of **2^n**. To compensate and maintain equivalent exposure, the photographer can:
 
 - **Slow the shutter** by n stops (multiply exposure time by 2^n)
-- **Open the aperture** by n stops (divide the f-number by 2^(n/2))
-- **Raise the ISO** by n stops (multiply ISO by 2^n)
 
 ### The 1/3-Stop Index System
 
@@ -168,10 +166,9 @@ classDiagram
     }
     class ExposureResult {
         +ShutterSpeed shutterSpeed
-        +Aperture apertureComp
-        +ISO isoComp
         +float evBefore
         +float evAfter
+        +int ndStops
     }
     ExposureCalculator --> ShutterSpeed
     ExposureCalculator --> Aperture
@@ -194,7 +191,7 @@ classDiagram
 
 ### ExposureCalculator
 
-`ExposureCalculator` is a stateless service with no internal state. Its `compensate()` method takes the base exposure parameters and an ND filter, then returns an `ExposureResult`. The compensation logic shifts shutter speed by `+thirdStops` (slower), aperture by `-thirdStops` (wider), and ISO by `+thirdStops` (higher sensitivity). It also calculates the EV before and after applying the filter.
+`ExposureCalculator` is a stateless service with no internal state. Its `compensate()` method takes the base exposure parameters, an ND filter, and reference aperture/ISO indices, then returns an `ExposureResult`. The compensation accounts for aperture and ISO changes relative to their reference values (snapshot when base SS was set): `totalShift = ndThirdStops + (curAv - refAv) - (curISO - refISO)`. This ensures that changing aperture or ISO redistributes the ND compensation while maintaining the same scene exposure.
 
 ---
 
@@ -202,11 +199,11 @@ classDiagram
 
 ### ExposureState
 
-`ExposureState` is an immutable state object. Every instance is frozen with `Object.freeze()` immediately after construction. The `with()` method accepts a partial object of fields to update and returns a brand-new `ExposureState` instance with those fields replaced. Fields include: `shutterSpeed`, `aperture`, `iso`, `ndFilter`, and `result`.
+`ExposureState` is an immutable state object. Every instance is frozen with `Object.freeze()` immediately after construction. The `with()` method accepts a partial object of fields to update and returns a brand-new `ExposureState` instance with those fields replaced. Fields include: `shutterSpeed`, `aperture`, `iso`, `ndFilter`, `result`, `refApertureIndex`, and `refISOIndex`. The reference indices record the aperture and ISO values at the time the base shutter speed was set, enabling EV-locked compensation.
 
 ### StateManager
 
-`StateManager` holds the current `ExposureState` and a reference to the `ExposureCalculator`. It implements the observer pattern using a `Set` of listener functions. Each setter method (`setShutterSpeed`, `setAperture`, `setISO`, `setNDStops`) updates the relevant portion of state and triggers a full recalculation. The `setNDStops` method wraps its logic in a try/catch to handle `RangeError` exceptions thrown by `NDFilter` for invalid inputs (values outside 1-20 or non-integers).
+`StateManager` holds the current `ExposureState` and a reference to the `ExposureCalculator`. It implements the observer pattern using a `Set` of listener functions. Each setter method (`setShutterSpeed`, `setAperture`, `setISO`, `setNDStops`) updates the relevant portion of state and triggers a full recalculation. `setShutterSpeed` additionally snapshots the current aperture and ISO indices as references for EV-locked compensation. The `setNDStops` method wraps its logic in a try/catch to handle `RangeError` exceptions thrown by `NDFilter` for invalid inputs (values outside 1-20 or non-integers).
 
 ---
 
@@ -216,7 +213,7 @@ classDiagram
 
 During initialization, `DiffRenderer` queries the Shadow DOM for all elements carrying a `[data-bind]` attribute and caches them in a `Map` keyed by the bind name. On each `render()` call, it iterates over the map and updates only the elements whose text content has actually changed.
 
-The `#setText()` private method compares the element's current `textContent` against the new value before writing, avoiding unnecessary DOM mutations. The `#setHidden()` private method toggles the `hidden` attribute on elements that should be conditionally visible (such as the bulb badge or clamping warnings).
+The `#setText()` private method compares the element's current `textContent` against the new value before writing, avoiding unnecessary DOM mutations. The `#setHidden()` private method toggles the `hidden` attribute on elements that should be conditionally visible (such as the bulb badge).
 
 ### data-bind System
 
